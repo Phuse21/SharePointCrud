@@ -12,6 +12,7 @@ import {
   IColumn,
   Selection,
   IObjectWithKey,
+  TextField,
 } from "@fluentui/react";
 import EmployeeForm from "./EmployeeForm";
 import { fetchEmployees, deleteEmployee } from "../actions";
@@ -25,7 +26,7 @@ const columns: IColumn[] = [
     minWidth: 30,
     maxWidth: 50,
     isResizable: true,
-    onRender: (_, index?: number) => index ?? 0,
+    onRender: (_, index?: number) => (index !== undefined ? index + 1 : 0),
   },
   {
     key: "colName",
@@ -56,58 +57,65 @@ const columns: IColumn[] = [
 
 const EmployeeList: React.FC<IEmployeeWebPartProps> = ({ context }) => {
   const [employees, setEmployees] = useState<IEmployee[]>([]);
+  const [filteredEmployees, setFilteredEmployees] = useState<IEmployee[]>([]);
   const [fetching, setFetching] = useState<boolean>(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [selectedEmp, setSelectedEmp] = useState<IEmployee | undefined>(
     undefined
   );
+  const [searchTerm, setSearchTerm] = useState("");
 
   const selection = new Selection({
     onSelectionChanged: () => {
       const sel: IObjectWithKey[] = selection.getSelection();
-      if (sel.length > 0) {
-        setSelectedEmp(sel[0] as IEmployee);
-      } else {
-        setSelectedEmp(undefined);
-      }
+      setSelectedEmp(sel.length > 0 ? (sel[0] as IEmployee) : undefined);
     },
   });
 
-  const loadEmployees = async (): Promise<void> => {
-    setFetching(true);
-    setFetchError(null);
-    try {
-      const data = await fetchEmployees(context);
-      setEmployees(data);
-    } catch (err: unknown) {
-      setFetchError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setFetching(false);
-    }
-  };
-
   useEffect(() => {
+    const loadEmployees = async (): Promise<void> => {
+      try {
+        setFetching(true);
+        const data = await fetchEmployees(context);
+        setEmployees(data);
+        setFilteredEmployees(data);
+      } catch (err) {
+        setFetchError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setFetching(false);
+      }
+    };
     loadEmployees().catch((err) => {
-      console.error("Error loading employees:", err);
       setFetchError(err instanceof Error ? err.message : String(err));
+      setFetching(false);
     });
   }, [context]);
 
+  useEffect(() => {
+    const filtered = employees.filter((emp) =>
+      emp.Name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    setFilteredEmployees(filtered);
+  }, [searchTerm, employees]);
+
   const handleSuccess = async (): Promise<void> => {
-    await loadEmployees();
+    const data = await fetchEmployees(context);
+    setEmployees(data);
+    setFilteredEmployees(data);
     setSelectedEmp(undefined);
   };
 
   const handleDelete = async (): Promise<void> => {
-    if (!selectedEmp || selectedEmp.Id === null) return;
-    await deleteEmployee(context, selectedEmp.Id);
-    await loadEmployees();
-    setSelectedEmp(undefined);
+    if (selectedEmp && selectedEmp.Id !== null) {
+      await deleteEmployee(context, selectedEmp.Id);
+      await handleSuccess();
+    }
   };
 
   if (fetching) {
     return <Spinner label="Loading employees…" size={SpinnerSize.large} />;
   }
+
   if (fetchError) {
     return (
       <MessageBar messageBarType={MessageBarType.error}>
@@ -115,6 +123,7 @@ const EmployeeList: React.FC<IEmployeeWebPartProps> = ({ context }) => {
       </MessageBar>
     );
   }
+
   if (employees.length === 0) {
     return (
       <MessageBar messageBarType={MessageBarType.warning}>
@@ -126,16 +135,27 @@ const EmployeeList: React.FC<IEmployeeWebPartProps> = ({ context }) => {
   return (
     <div>
       <h2>Employee Details</h2>
+
+      <div className={styles.searchFieldContainer}>
+        <p>select a row to edit or delete</p>
+
+        <TextField
+          placeholder="Search by name..."
+          value={searchTerm}
+          onChange={(e, value) => setSearchTerm(value || "")}
+          className={styles.searchField}
+        />
+      </div>
+
       <DetailsList
-        items={employees}
+        items={filteredEmployees}
         columns={columns}
         layoutMode={DetailsListLayoutMode.fixedColumns}
         isHeaderVisible
         selection={selection}
-        selectionMode={1} // single
+        selectionMode={1}
         className={styles.employeeList}
       />
-
       <EmployeeForm
         context={context}
         employee={selectedEmp}

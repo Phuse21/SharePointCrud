@@ -11,7 +11,20 @@
 }
 
 .employeeList {
-  margin-bottom: 20px;
+  margin-bottom: 30px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.searchField {
+  width: 50%;
+}
+
+.searchFieldContainer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
 }
 
 .buttonContainer {

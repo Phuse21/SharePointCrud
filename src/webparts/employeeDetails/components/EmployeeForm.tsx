@@ -145,7 +145,7 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
             errorMessage={errors.name}
           />
           <DatePicker
-            label="Hire Date"
+            label="Hire Date *"
             value={formData.hireDate ? new Date(formData.hireDate) : undefined}
             onSelectDate={(d) => {
               setFormData((fd) => ({
